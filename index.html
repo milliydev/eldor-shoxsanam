@@ -407,7 +407,7 @@ function burstAt(x,y,n,big){for(let i=0;i<n;i++){const a=Math.random()*6.28,sp=b
 
 /* original synthesized music */
 let AC,master,rev,noise,started=false,playing=false,nextT=0,step=0;const E=60/72/2,mf=m=>440*Math.pow(2,(m-69)/12);
-function initAudio(){if(AC)return;const C=window.AudioContext||window.webkitAudioContext;if(!C)return;AC=new C();master=AC.createGain();master.gain.value=0;
+function initAudio(){if(AC)return;const C=window.AudioContext||window.webkitAudioContext;if(!C)return;try{navigator.audioSession&&(navigator.audioSession.type='playback')}catch(e){}AC=new C();master=AC.createGain();master.gain.value=0;
   const comp=AC.createDynamicsCompressor();comp.threshold.value=-16;comp.ratio.value=3;master.connect(comp);comp.connect(AC.destination);
   rev=AC.createConvolver();const len=AC.sampleRate*3.6,b=AC.createBuffer(2,len,AC.sampleRate);for(let c=0;c<2;c++){const d=b.getChannelData(c);for(let i=0;i<len;i++)d[i]=(Math.random()*2-1)*Math.pow(1-i/len,2.6)}
   rev.buffer=b;const rg=AC.createGain();rg.gain.value=.6;rev.connect(rg);rg.connect(master);
@@ -431,7 +431,8 @@ function sched(st,t){const g=Math.floor(st/8),s=st%8,ci=g%4,ch=prog[ci];if(s===0
 function tick(){if(!AC)return;if(nextT<AC.currentTime-.1)nextT=AC.currentTime+.05;while(nextT<AC.currentTime+.3){sched(step,nextT);nextT+=E;step++}}
 const mBtn=$('#music');
 function startMusic(){initAudio();if(!AC)return;AC.resume();if(started)return;started=playing=true;nextT=AC.currentTime+.15;step=0;master.gain.setValueAtTime(0,AC.currentTime);master.gain.linearRampToValueAtTime(.85,AC.currentTime+4);setInterval(tick,50);mBtn.classList.add('playing')}
-mBtn.addEventListener('click',()=>{if(!started){startMusic();return}if(playing){playing=false;master.gain.setTargetAtTime(0,AC.currentTime,.15);setTimeout(()=>{if(!playing)AC.suspend()},700)}else{playing=true;AC.resume().then(()=>master.gain.setTargetAtTime(.85,AC.currentTime,.4))}mBtn.classList.toggle('playing',playing)});
+function unlock(){if(AC&&playing&&AC.state!=='running')AC.resume()}['pointerup','touchend','click','keydown'].forEach(v=>addEventListener(v,unlock,true));
+mBtn.addEventListener('click',()=>{if(!started){startMusic();return}if(playing&&AC.state!=='running'){AC.resume();master.gain.setTargetAtTime(.85,AC.currentTime,.4);mBtn.classList.add('playing');return}if(playing){playing=false;master.gain.setTargetAtTime(0,AC.currentTime,.15);setTimeout(()=>{if(!playing)AC.suspend()},700)}else{playing=true;AC.resume().then(()=>master.gain.setTargetAtTime(.85,AC.currentTime,.4))}mBtn.classList.toggle('playing',playing)});
 document.addEventListener('visibilitychange',()=>{if(!AC||!started)return;if(document.hidden)AC.suspend();else if(playing)AC.resume()});
 function chime(m){initAudio();if(!AC)return;AC.resume();const o=AC.createGain();o.gain.value=.9;o.connect(AC.destination);bell(m,AC.currentTime+.02,1.4,.12,o)}
 
@@ -445,7 +446,7 @@ function down(e){if(e.cancelable)e.preventDefault();initAudio();AC&&AC.resume();
   if(stage===0){stage=-1;wrap.classList.add('untied');chime(76);setTimeout(()=>chime(83),180);navigator.vibrate&&navigator.vibrate(15);
     hint.innerHTML='Endi muhrni sindirish uchun <b>bosib turing</b>';setTimeout(()=>{stage=1;ring.classList.add('show')},1300);return}
   if(stage===1){holding=true;if(!raf){last=0;raf=requestAnimationFrame(hloop)}}}
-function up(){holding=false;if(stage===1&&!raf&&hp>0){last=0;raf=requestAnimationFrame(hloop)}}
+function up(){holding=false;AC&&AC.resume();if(stage===1&&!raf&&hp>0){last=0;raf=requestAnimationFrame(hloop)}}
 seal.addEventListener('pointerdown',down);['pointerup','pointerleave','pointercancel'].forEach(v=>seal.addEventListener(v,up));
 seal.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat)down(e)});seal.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')up()});
 seal.addEventListener('contextmenu',e=>e.preventDefault());
