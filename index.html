@@ -405,7 +405,7 @@ function burstAt(x,y,n,big){for(let i=0;i<n;i++){const a=Math.random()*6.28,sp=b
     if(p.c===2){cx.beginPath();cx.ellipse(0,0,p.r*.9,p.r*.45,0,0,6.28);cx.fill()}else cx.fillRect(-p.r/2,-p.r/4,p.r,p.r/2);cx.restore()}
   cx.globalAlpha=1;requestAnimationFrame(loop)})();
 
-/* original synthesized music */
+/* music: kelibdi.m4a from its best part; synth below is only for chimes */
 let AC,master,rev,noise,started=false,playing=false,nextT=0,step=0;const E=60/72/2,mf=m=>440*Math.pow(2,(m-69)/12);
 function initAudio(){if(AC)return;const C=window.AudioContext||window.webkitAudioContext;if(!C)return;try{navigator.audioSession&&(navigator.audioSession.type='playback')}catch(e){}AC=new C();master=AC.createGain();master.gain.value=0;
   const comp=AC.createDynamicsCompressor();comp.threshold.value=-16;comp.ratio.value=3;master.connect(comp);comp.connect(AC.destination);
@@ -429,11 +429,14 @@ function sched(st,t){const g=Math.floor(st/8),s=st%8,ci=g%4,ch=prog[ci];if(s===0
   if(g>=2){const tn=[...ch.map(n=>n+12),ch[0]+24];pluck(tn[arp[s]],t,s%2?.035:.05)}
   if(g>=4){mel[(g-4)%8].forEach(([ss,m,l])=>{if(ss===s)bell(m,t,l*E,.075)});if(s===0||s===3||s===6)doira(t,s===0?.32:.2);if(s===2||s===7)doira(t,.08,true);if(s%2)shaker(t,.035)}}
 function tick(){if(!AC)return;if(nextT<AC.currentTime-.1)nextT=AC.currentTime+.05;while(nextT<AC.currentTime+.3){sched(step,nextT);nextT+=E;step++}}
-const mBtn=$('#music');
-function startMusic(){initAudio();if(!AC)return;AC.resume();if(started)return;started=playing=true;nextT=AC.currentTime+.15;step=0;master.gain.setValueAtTime(0,AC.currentTime);master.gain.linearRampToValueAtTime(.85,AC.currentTime+4);setInterval(tick,50);mBtn.classList.add('playing')}
-function unlock(){if(AC&&playing&&AC.state!=='running')AC.resume()}['pointerup','touchend','click','keydown'].forEach(v=>addEventListener(v,unlock,true));
-mBtn.addEventListener('click',()=>{if(!started){startMusic();return}if(playing&&AC.state!=='running'){AC.resume();master.gain.setTargetAtTime(.85,AC.currentTime,.4);mBtn.classList.add('playing');return}if(playing){playing=false;master.gain.setTargetAtTime(0,AC.currentTime,.15);setTimeout(()=>{if(!playing)AC.suspend()},700)}else{playing=true;AC.resume().then(()=>master.gain.setTargetAtTime(.85,AC.currentTime,.4))}mBtn.classList.toggle('playing',playing)});
-document.addEventListener('visibilitychange',()=>{if(!AC||!started)return;if(document.hidden)AC.suspend();else if(playing)AC.resume()});
+const mBtn=$('#music'),au=new Audio('kelibdi.m4a'),BEST=47;au.loop=true;au.preload='auto';let primed=false,fade=0;
+function fadeTo(v,ms){clearInterval(fade);const v0=au.volume,t0=performance.now();fade=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/ms);au.volume=v0+(v-v0)*k;if(k>=1){clearInterval(fade);if(!v)au.pause()}},40)}
+function prime(){if(primed||started)return;primed=true;au.muted=true;au.play().then(()=>{if(!started){au.pause();au.muted=false}}).catch(()=>{primed=false;au.muted=false})}
+function startMusic(){if(started)return;started=playing=true;try{au.currentTime=BEST}catch(e){}au.muted=false;au.volume=0;au.play().then(()=>fadeTo(1,3000)).catch(()=>{playing=false;mBtn.classList.remove('playing')});mBtn.classList.add('playing')}
+au.addEventListener('loadedmetadata',()=>{if(!started)au.currentTime=BEST});
+au.addEventListener('ended',()=>{au.currentTime=BEST;au.play()});
+mBtn.addEventListener('click',()=>{if(!started){startMusic();return}if(playing&&!au.paused){playing=false;fadeTo(0,500)}else{playing=true;au.muted=false;au.play().then(()=>fadeTo(1,800)).catch(()=>{})}mBtn.classList.toggle('playing',playing)});
+document.addEventListener('visibilitychange',()=>{if(!started)return;if(document.hidden)au.pause();else if(playing)au.play().catch(()=>{})});
 function chime(m){initAudio();if(!AC)return;AC.resume();const o=AC.createGain();o.gain.value=.9;o.connect(AC.destination);bell(m,AC.currentTime+.02,1.4,.12,o)}
 
 /* gate: untie the thread, break the seal, open the card */
@@ -442,11 +445,11 @@ function sealCenter(){const r=seal.getBoundingClientRect();return[r.left+r.width
 function hloop(t){const dt=last?t-last:16;last=t;hp+=holding?dt/1500:-dt/500;hp=Math.max(0,Math.min(1,hp));ringP.style.strokeDashoffset=1-hp;seal.style.setProperty('--p',hp);
   if(holding&&Math.random()<.3){const[x,y]=sealCenter(),a=hp*6.28-1.57,R=seal.offsetWidth/2+14;burstAt(x+Math.cos(a)*R,y+Math.sin(a)*R,1,false)}
   if(hp>=1&&stage===1){stage=2;raf=0;breakSeal();return}if(hp>0||holding)raf=requestAnimationFrame(hloop);else{raf=0;last=0}}
-function down(e){if(e.cancelable)e.preventDefault();initAudio();AC&&AC.resume();
+function down(e){if(e.cancelable)e.preventDefault();initAudio();AC&&AC.resume();prime();
   if(stage===0){stage=-1;wrap.classList.add('untied');chime(76);setTimeout(()=>chime(83),180);navigator.vibrate&&navigator.vibrate(15);
     hint.innerHTML='Endi muhrni sindirish uchun <b>bosib turing</b>';setTimeout(()=>{stage=1;ring.classList.add('show')},1300);return}
   if(stage===1){holding=true;if(!raf){last=0;raf=requestAnimationFrame(hloop)}}}
-function up(){holding=false;AC&&AC.resume();if(stage===1&&!raf&&hp>0){last=0;raf=requestAnimationFrame(hloop)}}
+function up(){holding=false;AC&&AC.resume();prime();if(stage===1&&!raf&&hp>0){last=0;raf=requestAnimationFrame(hloop)}}
 seal.addEventListener('pointerdown',down);['pointerup','pointerleave','pointercancel'].forEach(v=>seal.addEventListener(v,up));
 seal.addEventListener('keydown',e=>{if((e.key===' '||e.key==='Enter')&&!e.repeat)down(e)});seal.addEventListener('keyup',e=>{if(e.key===' '||e.key==='Enter')up()});
 seal.addEventListener('contextmenu',e=>e.preventDefault());
