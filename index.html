@@ -432,10 +432,11 @@ function tick(){if(!AC)return;if(nextT<AC.currentTime-.1)nextT=AC.currentTime+.0
 const mBtn=$('#music'),au=new Audio('kelibdi.m4a'),BEST=47;au.loop=true;au.preload='auto';let primed=false,fade=0;
 function fadeTo(v,ms){clearInterval(fade);const v0=au.volume,t0=performance.now();fade=setInterval(()=>{const k=Math.min(1,(performance.now()-t0)/ms);au.volume=v0+(v-v0)*k;if(k>=1){clearInterval(fade);if(!v)au.pause()}},40)}
 function prime(){if(primed||started)return;primed=true;au.muted=true;au.play().then(()=>{if(!started){au.pause();au.muted=false}}).catch(()=>{primed=false;au.muted=false})}
-function startMusic(){if(started)return;started=playing=true;try{au.currentTime=BEST}catch(e){}au.muted=false;au.volume=0;au.play().then(()=>fadeTo(1,3000)).catch(()=>{playing=false;mBtn.classList.remove('playing')});mBtn.classList.add('playing')}
+function startMusic(){if(started)return;started=playing=true;try{au.currentTime=BEST}catch(e){}au.muted=false;au.volume=0;au.play().then(()=>fadeTo(1,3000)).catch(()=>{});mBtn.classList.add('playing')}
 au.addEventListener('loadedmetadata',()=>{if(!started)au.currentTime=BEST});
 au.addEventListener('ended',()=>{au.currentTime=BEST;au.play()});
 mBtn.addEventListener('click',()=>{if(!started){startMusic();return}if(playing&&!au.paused){playing=false;fadeTo(0,500)}else{playing=true;au.muted=false;au.play().then(()=>fadeTo(1,800)).catch(()=>{})}mBtn.classList.toggle('playing',playing)});
+['pointerup','touchend','click','keydown'].forEach(v=>addEventListener(v,e=>{prime();if(started&&playing&&au.paused&&!mBtn.contains(e.target))au.play().then(()=>fadeTo(1,1500)).catch(()=>{})},true));
 document.addEventListener('visibilitychange',()=>{if(!started)return;if(document.hidden)au.pause();else if(playing)au.play().catch(()=>{})});
 function chime(m){initAudio();if(!AC)return;AC.resume();const o=AC.createGain();o.gain.value=.9;o.connect(AC.destination);bell(m,AC.currentTime+.02,1.4,.12,o)}
 
@@ -445,7 +446,7 @@ function sealCenter(){const r=seal.getBoundingClientRect();return[r.left+r.width
 function hloop(t){const dt=last?t-last:16;last=t;hp+=holding?dt/1500:-dt/500;hp=Math.max(0,Math.min(1,hp));ringP.style.strokeDashoffset=1-hp;seal.style.setProperty('--p',hp);
   if(holding&&Math.random()<.3){const[x,y]=sealCenter(),a=hp*6.28-1.57,R=seal.offsetWidth/2+14;burstAt(x+Math.cos(a)*R,y+Math.sin(a)*R,1,false)}
   if(hp>=1&&stage===1){stage=2;raf=0;breakSeal();return}if(hp>0||holding)raf=requestAnimationFrame(hloop);else{raf=0;last=0}}
-function down(e){if(e.cancelable)e.preventDefault();initAudio();AC&&AC.resume();prime();
+function down(e){if(e.cancelable)e.preventDefault();initAudio();AC&&AC.resume();
   if(stage===0){stage=-1;wrap.classList.add('untied');chime(76);setTimeout(()=>chime(83),180);navigator.vibrate&&navigator.vibrate(15);
     hint.innerHTML='Endi muhrni sindirish uchun <b>bosib turing</b>';setTimeout(()=>{stage=1;ring.classList.add('show')},1300);return}
   if(stage===1){holding=true;if(!raf){last=0;raf=requestAnimationFrame(hloop)}}}
